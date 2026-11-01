@@ -55,7 +55,7 @@ nav button{flex:1;background:none;border:0;color:var(--muted);padding:8px 0 4px;
 nav button span{font-size:21px;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
 nav button.on{color:var(--pri);font-weight:700}
 nav button.on span{transform:translateY(-3px) scale(1.18)}
-.ind{position:absolute;top:0;right:0;width:25%;height:3px;display:flex;justify-content:center;transition:right .38s cubic-bezier(.22,1,.36,1)}
+.ind{position:absolute;top:0;right:0;width:20%;height:3px;display:flex;justify-content:center;transition:right .38s cubic-bezier(.22,1,.36,1)}
 .ind:before{content:"";width:34px;height:3px;border-radius:0 0 6px 6px;background:var(--pri)}
 
 /* مهام */
@@ -165,3 +165,15 @@ nav button.on span{transform:translateY(-3px) scale(1.18)}
 @keyframes ringb{0%,100%{transform:rotate(0)}15%{transform:rotate(18deg)}30%{transform:rotate(-16deg)}45%{transform:rotate(12deg)}60%{transform:rotate(-8deg)}75%{transform:rotate(0)}}
 .acard h2{font-size:20px;margin:10px 0 4px;overflow-wrap:anywhere}
 .abtns{display:flex;flex-direction:column;gap:8px;margin-top:18px}
+
+/* الصلاة */
+.alarm.top{z-index:80}
+.pico{font-size:56px;display:inline-block;animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.12)}}
+.ico2{font-size:24px;width:34px;text-align:center;flex:none}
+.task.now{background:var(--pri-soft);border-radius:14px;padding-inline:10px;margin-inline:-4px;border-bottom-color:transparent}
+.pdots{display:flex;gap:6px;margin:10px 0 6px}
+.pdots i{flex:1;height:10px;border-radius:99px;background:var(--line);transition:background .5s}
+.pdots i.on{background:var(--ok)}
+.acts .pbtn{width:auto;padding:0 12px;font-size:13px;font-weight:700;color:var(--ok)}
+nav button{font-size:11px}

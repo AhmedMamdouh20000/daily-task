@@ -49,6 +49,16 @@
     <div class="card" id="tasklist"></div>
   </section>
 
+  <!-- الصلاة -->
+  <section id="tab-prayer" class="tab">
+    <div class="card nextcard" id="pnext"></div>
+    <div class="card">
+      <div class="row between"><h2 style="margin:0">مواقيت النهارده</h2><button class="btn ghost sm" onclick="openSettings()" id="ploc">📍</button></div>
+      <div id="plist"></div>
+    </div>
+    <div class="card muted">الحسبة بطريقة الهيئة المصرية العامة للمساحة. المواقيت بتتغيّر تلقائي مع الصيفي والشتوي حسب ساعة جهازك. لو لقيت فرق دقيقة أو اتنين عن جامعك، عدّله من ⚙️ ← ضبط المواقيت.</div>
+  </section>
+
   <!-- الميزانية -->
   <section id="tab-budget" class="tab">
     <div class="card">
@@ -88,6 +98,7 @@
   <i class="ind" id="ind"></i>
   <button class="on" data-t="dash" onclick="go('dash')"><span>📊</span>الداشبورد</button>
   <button data-t="tasks" onclick="go('tasks')"><span>✅</span>المهام</button>
+  <button data-t="prayer" onclick="go('prayer')"><span>🕌</span>الصلاة</button>
   <button data-t="budget" onclick="go('budget')"><span>💰</span>الميزانية</button>
   <button data-t="cal" onclick="go('cal')"><span>🎂</span>المناسبات</button>
 </nav>
@@ -125,6 +136,15 @@
   <div class="muted" id="s-stat" style="margin-top:8px"></div>
   <div class="muted" style="margin-top:6px">المنبّه بيشتغل والصفحة مفتوحة في أي تاب (حتى لو التاب في الخلفية). لو قفلتها أو اللاب نام مش هيرن. في نسخة Flutter هيشتغل في الخلفية.</div>
   <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+  <h2 style="font-size:15px;margin:0 0 4px">🕌 الصلاة</h2>
+  <div class="row between" style="margin-top:8px"><div><b>تنبيه الأذان</b><div class="muted">أذان ونافذة اختيار عند كل صلاة</div></div><label class="sw"><input type="checkbox" id="s-adhan" onchange="saveSettings()"><i></i></label></div>
+  <div class="row between" style="margin-top:12px"><div><b>صيغة الحلف</b><div class="muted">"والله صليت" / "والله هصلي"</div></div><label class="sw"><input type="checkbox" id="s-oath" onchange="saveSettings()"><i></i></label></div>
+  <label>المدينة</label><select id="s-city" onchange="saveCity()"></select>
+  <div class="row" style="margin-top:8px;flex-wrap:wrap;align-items:flex-end"><button class="btn ghost sm" onclick="useGPS()">📍 موقعي الحالي</button><div style="flex:1;min-width:130px"><label style="margin-top:0">ضبط المواقيت (دقايق)</label><input id="s-adj" type="number" min="-30" max="30" inputmode="numeric" onchange="saveAdj()"></div></div>
+  <label>ملف الأذان</label><input type="file" id="s-adhanfile" accept="audio/*" onchange="pickAdhan(this)">
+  <div class="muted" id="s-adhanstat" style="margin-top:6px"></div>
+  <div class="row" style="margin-top:8px;flex-wrap:wrap"><button class="btn ghost sm" id="s-prev" onclick="previewAdhan()">▶️ جرّب الأذان</button><button class="btn ghost sm" onclick="testPrayer()">🕌 جرّب النافذة</button><button class="btn ghost sm" onclick="clearAdhan()">🗑 شيل الملف</button></div>
+  <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
   <div class="row" style="flex-wrap:wrap"><button class="btn ghost sm" onclick="demo()">📥 بيانات تجريبية</button><button class="btn ghost sm" style="color:var(--bad)" onclick="resetAll()">🗑 مسح كل حاجة</button></div>
   <button class="btn" style="width:100%;margin-top:16px" onclick="closeM()">تمام</button>
 </div></div>
@@ -136,8 +156,17 @@
     <button class="btn ghost" onclick="snooze(5)">😴 فكّرني بعد 5 دقايق</button>
     <button class="btn ghost" onclick="dismissAlarm()">إغلاق</button>
   </div></div></div>
+<div class="alarm top" id="m-prayer" role="alertdialog" aria-live="assertive"><div class="acard">
+  <div class="pico" id="pr-ico">🕌</div>
+  <h2 id="pr-title"></h2><div class="muted" id="pr-time"></div><div class="muted" id="pr-more" style="margin-top:6px"></div>
+  <div class="muted" id="pr-hint" style="margin-top:10px"></div>
+  <div class="abtns">
+    <button class="btn" id="pr-yes" onclick="prayAnswer('prayed')"></button>
+    <button class="btn ghost" id="pr-soon" onclick="prayAnswer('promised')"></button>
+  </div></div></div>
 <div id="toasts"></div>
 
+<script src="adhan.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

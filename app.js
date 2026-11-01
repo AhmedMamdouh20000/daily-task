@@ -1,7 +1,7 @@
 'use strict';
 /* مُخطّطي — كل البيانات بتتحفظ في المتصفح (localStorage) */
 const KEY='planner_v2',OLD='planner_v1';
-const TABS=['dash','tasks','budget','cal'];
+const TABS=['dash','tasks','prayer','budget','cal'];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad=n=>String(n).padStart(2,'0');
@@ -31,7 +31,9 @@ function load(){
   S.notified=(S.notified&&typeof S.notified==='object')?S.notified:{};
   S.budget=Object.assign({salary:'',transport:'',days:22,saveOn:false,savePct:30,needs:[]},S.budget||{});
   if(!Array.isArray(S.budget.needs))S.budget.needs=[];
-  S.settings=Object.assign({eve:'21:00',sound:true},S.settings||{});
+  S.settings=Object.assign({eve:'21:00',sound:true,adhan:true,city:'cairo',oath:true,adj:0},S.settings||{});
+  S.prayer=(S.prayer&&typeof S.prayer==='object'&&S.prayer.days&&typeof S.prayer.days==='object')?S.prayer:{days:{}};
+  Object.keys(S.prayer.days).sort().slice(0,-30).forEach(k=>delete S.prayer.days[k]);
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 load();
@@ -64,7 +66,7 @@ function go(t){
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on','from-l','from-r'));
   $('tab-'+t).classList.add('on',ni>ci?'from-l':'from-r');
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
-  $('ind').style.right=(ni*25)+'%';
+  $('ind').style.right=(ni*100/TABS.length)+'%';
   cur=t;syncFab();window.scrollTo({top:0});render();
 }
 function step(dir){const i=TABS.indexOf(cur)+dir;if(i>=0&&i<TABS.length)go(TABS[i])}
@@ -185,6 +187,8 @@ function renderNext(){
   else h=`<div class="row"><div class="ico">🌿</div><div><b>مفيش مهام جاية النهارده</b><div class="muted">استمتع بوقتك أو ضيف مهمة جديدة</div></div></div>`;
   const bd=S.events.map(e=>({e,n:daysTo(nextOcc(e))})).filter(x=>x.n>=0&&x.n<=5).sort((a,b)=>a.n-b.n);
   if(bd.length)h+=bd.map(x=>`<div class="muted" style="margin-top:10px">${x.e.yearly?'🎂':'📌'} ${esc(x.e.name)} — ${x.n===0?'النهارده':'بعد '+x.n+' يوم'}</div>`).join('');
+  const pn=upcomingPrayer();
+  if(pn)h+=`<div class="muted" style="margin-top:10px">🕌 ${pn.n} ${fmtT(pn.at)} — ${ctext(mins(pn.at))}</div>`;
   $('nextcard').innerHTML=h;
 }
 function renderWeek(){
@@ -380,19 +384,28 @@ function snooze(min){
   dismissAlarm();
 }
 
-function notify(title,body,opt){
+const SYS={};
+function sysNotify(title,body,opt){
   opt=opt||{};
-  if(opt.alarm){showAlarm({title,body,taskId:opt.taskId,tag:opt.tag});flashTitle('🔔 '+title)}
-  else{toast(title+(body?' — '+body:''));beepOnce()}
   try{if(navigator.vibrate&&(!navigator.userActivation||navigator.userActivation.hasBeenActive))navigator.vibrate([200,100,200])}catch(e){}
   try{
     if('Notification' in window&&Notification.permission==='granted'){
       const o={body,requireInteraction:!!opt.alarm,tag:opt.tag||undefined,icon:'icon-192.png'};
-      const plain=()=>{const n=new Notification(title,o);n.onclick=()=>{window.focus();n.close()}};
+      const plain=()=>{const n=new Notification(title,o);n.onclick=()=>{window.focus();n.close()};if(opt.tag)SYS[opt.tag]=n};
       if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration)navigator.serviceWorker.getRegistration().then(r=>r?r.showNotification(title,o):plain()).catch(plain);
       else plain();
     }
   }catch(e){}
+}
+function closeSys(tag){
+  try{if(SYS[tag]){SYS[tag].close();delete SYS[tag]}}catch(e){}
+  try{if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration)navigator.serviceWorker.getRegistration().then(r=>r&&r.getNotifications?r.getNotifications({tag}).then(l=>l.forEach(n=>n.close())):0).catch(()=>{})}catch(e){}
+}
+function notify(title,body,opt){
+  opt=opt||{};
+  if(opt.alarm){showAlarm({title,body,taskId:opt.taskId,tag:opt.tag});flashTitle('🔔 '+title)}
+  else{toast(title+(body?' — '+body:''));beepOnce()}
+  sysNotify(title,body,opt);
 }
 function permText(){
   if(!('Notification' in window))return 'المتصفح ده مش بيدعم إشعارات النظام';
@@ -427,12 +440,204 @@ function tick(){
     if(n>0&&n<=5&&once('e-'+e.id+'-'+fmt(o)))notify('🎂 '+e.name,'بعد '+n+' يوم');
     if(n===0&&once('e0-'+e.id+'-'+fmt(o)))notify('🎉 النهارده: '+e.name,'');
   });
+  checkPrayers();
   if(cur==='dash')renderNext();
+  if(cur==='prayer')renderPrayer();
+}
+
+/* ---------- الصلاة ---------- */
+const CITIES=[
+ {id:'cairo',n:'القاهرة',lat:30.0444,lng:31.2357},{id:'giza',n:'الجيزة',lat:30.0131,lng:31.2089},
+ {id:'alex',n:'الإسكندرية',lat:31.2001,lng:29.9187},{id:'benisuef',n:'بني سويف',lat:29.0661,lng:31.0994},
+ {id:'fayoum',n:'الفيوم',lat:29.3084,lng:30.8428},{id:'minya',n:'المنيا',lat:28.1099,lng:30.7503},
+ {id:'asyut',n:'أسيوط',lat:27.1783,lng:31.1859},{id:'sohag',n:'سوهاج',lat:26.5591,lng:31.6948},
+ {id:'luxor',n:'الأقصر',lat:25.6872,lng:32.6396},{id:'aswan',n:'أسوان',lat:24.0889,lng:32.8998},
+ {id:'tanta',n:'طنطا',lat:30.7865,lng:31.0004},{id:'mansoura',n:'المنصورة',lat:31.0409,lng:31.3785},
+ {id:'zagazig',n:'الزقازيق',lat:30.5877,lng:31.5020},{id:'portsaid',n:'بورسعيد',lat:31.2653,lng:32.3019},
+ {id:'suez',n:'السويس',lat:29.9668,lng:32.5498},{id:'ismailia',n:'الإسماعيلية',lat:30.5965,lng:32.2715},
+ {id:'sharm',n:'شرم الشيخ',lat:27.9158,lng:34.3300},{id:'hurghada',n:'الغردقة',lat:27.2579,lng:33.8116}
+];
+const PR=[{k:'fajr',n:'الفجر',ico:'🌌'},{k:'dhuhr',n:'الظهر',ico:'☀️'},{k:'asr',n:'العصر',ico:'🌤️'},{k:'maghrib',n:'المغرب',ico:'🌇'},{k:'isha',n:'العشاء',ico:'🌙'}];
+const ADHAN={el:null,url:'',src:'',obj:null};
+let ptCache={},pQ=[];
+const fmtT=d=>{const h=d.getHours();return (h%12||12)+':'+pad(d.getMinutes())+(h<12?' ص':' م')};
+const pst=(d,k)=>(S.prayer.days[d]||{})[k]||null;
+function pset(d,k,v){(S.prayer.days[d]=S.prayer.days[d]||{})[k]=v;save()}
+function coords(){
+  const s=S.settings;
+  if(s.city==='gps'&&isFinite(s.lat)&&isFinite(s.lng))return{la:s.lat,lo:s.lng,n:'موقعك الحالي'};
+  const c=CITIES.find(x=>x.id===s.city)||CITIES[0];return{la:c.lat,lo:c.lng,n:c.n};
+}
+/* الحسبة: الهيئة المصرية العامة للمساحة (فجر 19.5° / عشاء 17.5°) والعصر بالمذهب الشافعي */
+function ptFor(d){
+  if(typeof adhan==='undefined')return null;
+  const c=coords(),adj=(parseFloat(S.settings.adj)||0)*60000,key=d+'|'+c.la+'|'+c.lo+'|'+adj;
+  if(ptCache[key])return ptCache[key];
+  try{
+    const p=adhan.CalculationMethod.Egyptian();p.madhab=adhan.Madhab.Shafi;
+    const t=new adhan.PrayerTimes(new adhan.Coordinates(c.la,c.lo),parse(d),p),sh=x=>new Date(x.getTime()+adj);
+    if(Object.keys(ptCache).length>40)ptCache={};
+    return ptCache[key]={fajr:sh(t.fajr),sunrise:sh(t.sunrise),dhuhr:sh(t.dhuhr),asr:sh(t.asr),maghrib:sh(t.maghrib),isha:sh(t.isha)};
+  }catch(e){return null}
+}
+function dayPrayers(d){
+  const t=ptFor(d),n=ptFor(addDays(d,1));if(!t||!n)return null;
+  const ends=[t.sunrise,t.asr,t.maghrib,t.isha,n.fajr];
+  return PR.map((p,i)=>Object.assign({},p,{at:t[p.k],end:ends[i]}));
+}
+function upcomingPrayer(){
+  const now=new Date(),t0=today(),L=dayPrayers(t0);if(!L)return null;
+  let n=L.find(p=>p.at>now);
+  if(!n){const T=dayPrayers(addDays(t0,1));n=T&&T[0]}
+  return n||null;
+}
+
+/* ملف الأذان: بيتحفظ في المتصفح (IndexedDB) أو adhan.mp3 جنب index.html */
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('planner',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function idbGet(k){const d=await idb();return new Promise((res,rej)=>{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
+async function idbSet(k,v){const d=await idb();return new Promise((res,rej)=>{const tx=d.transaction('kv','readwrite');tx.objectStore('kv').put(v,k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+async function idbDel(k){const d=await idb();return new Promise((res,rej)=>{const tx=d.transaction('kv','readwrite');tx.objectStore('kv').delete(k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+async function loadAdhan(){
+  if(ADHAN.obj){try{URL.revokeObjectURL(ADHAN.obj)}catch(e){}ADHAN.obj=null}
+  ADHAN.url='';ADHAN.src='';
+  try{const b=await idbGet('adhan');if(b){ADHAN.obj=URL.createObjectURL(b);ADHAN.url=ADHAN.obj;ADHAN.src='file';return}}catch(e){}
+  try{const r=await fetch('adhan.mp3',{method:'HEAD',cache:'no-store'});if(r.ok&&!/text\/html/.test(r.headers.get('content-type')||'')){ADHAN.url='adhan.mp3';ADHAN.src='site'}}catch(e){}
+}
+function updateAdhanStat(){
+  const el=$('s-adhanstat');if(!el)return;
+  el.textContent=ADHAN.src==='file'?'🎵 ملف الأذان: '+(S.settings.adhanName||'مرفوع من جهازك'):ADHAN.src==='site'?'🎵 بيستخدم ملف adhan.mp3 الموجود جنب الموقع':'⚠️ مفيش ملف أذان لسه. اختار ملف صوت من جهازك، وإلا هيرن صوت تنبيه عادي.';
+}
+async function pickAdhan(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  if(!/^audio\//.test(f.type)&&!/\.(mp3|m4a|ogg|wav|aac|opus)$/i.test(f.name)){toast('اختار ملف صوت (mp3 مثلاً)');inp.value='';return}
+  if(f.size>20*1024*1024){toast('الملف كبير. أقصى حجم 20 ميجا');inp.value='';return}
+  try{await idbSet('adhan',f);S.settings.adhanName=f.name;save();await loadAdhan();toast('اتحفظ الأذان ✅')}catch(e){toast('معرفتش أحفظ الملف')}
+  inp.value='';updateAdhanStat();
+}
+async function clearAdhan(){try{await idbDel('adhan')}catch(e){}S.settings.adhanName='';save();await loadAdhan();updateAdhanStat();toast('اتشال ملف الأذان')}
+function playAdhan(){
+  stopAdhan();
+  if(!ADHAN.url){startRing();return false}
+  const el=new Audio(ADHAN.url);ADHAN.el=el;
+  el.addEventListener('ended',()=>{if(ADHAN.el===el)ADHAN.el=null});
+  el.play().catch(()=>{if(ADHAN.el===el){ADHAN.el=null;startRing()}});
+  return true;
+}
+function stopAdhan(){if(ADHAN.el){try{ADHAN.el.pause()}catch(e){}ADHAN.el=null}}
+function previewAdhan(){
+  const b=$('s-prev');
+  if(ADHAN.el){stopAdhan();b.textContent='▶️ جرّب الأذان';return}
+  if(!ADHAN.url){toast('اختار ملف الأذان الأول');return}
+  playAdhan();
+  if(ADHAN.el){b.textContent='⏹ إيقاف';ADHAN.el.addEventListener('ended',()=>{b.textContent='▶️ جرّب الأذان'})}
+}
+
+/* نافذة الصلاة: ما بتتقفلش غير بالاختيار */
+function promptPrayer(d,p,mode,test){
+  const key=d+'|'+p.k+(test?'|test':'');
+  if(pQ.some(x=>x.key===key))return;
+  pQ.push({key,d,p,mode,test:!!test});
+  if(!$('m-prayer').classList.contains('show'))showPrayerDialog();
+}
+function showPrayerDialog(){
+  const a=pQ[0];
+  if(!a){$('m-prayer').classList.remove('show');stopAdhan();stopRing();stopFlash();return}
+  const p=a.p,mode=a.mode,oath=S.settings.oath!==false;
+  const title=mode==='follow'?'لسه ما صليتش '+p.n:mode==='late'||mode==='resume'?'دخل وقت صلاة '+p.n:'حان الآن وقت صلاة '+p.n;
+  $('pr-ico').textContent=p.ico;$('pr-title').textContent=title;
+  $('pr-time').textContent=fmtT(p.at)+' • '+coords().n;
+  $('pr-more').textContent=pQ.length>1?'+ '+(pQ.length-1)+' صلاة تانية':'';
+  $('pr-yes').textContent='🤲 '+(oath?'والله ':'')+'صليت';
+  $('pr-soon').textContent='⏳ '+(oath?'والله ':'')+'هصلي';
+  $('pr-hint').textContent=mode==='adhan'?'اختار عشان يقف الأذان':'اختار عشان يقفل التنبيه';
+  $('m-prayer').classList.add('show');
+  if(mode==='adhan')playAdhan();else if(mode==='follow')startRing();
+  if(mode!=='resume'){
+    sysNotify('🕌 '+title,'اختار: '+(oath?'والله صليت / والله هصلي':'صليت / هصلي'),{alarm:true,tag:'pray-'+a.key});
+    flashTitle('🕌 '+title);
+  }
+}
+function prayAnswer(kind){
+  const a=pQ.shift();
+  stopAdhan();stopRing();
+  if(a){
+    closeSys('pray-'+a.key);
+    if(!a.test){const o=pst(a.d,a.p.k)||{};pset(a.d,a.p.k,{s:kind==='prayed'?'prayed':'promised',t:Date.now(),f:o.f||0})}
+  }
+  toast(kind==='prayed'?'تقبّل الله 🤲':'ربنا يعينك ويتقبّل منك 🤍');
+  showPrayerDialog();renderPrayer();if(cur==='dash')renderNext();
+}
+function markPrayed(d,k){
+  const o=pst(d,k)||{};pset(d,k,{s:'prayed',t:Date.now(),f:o.f||0});
+  const i=pQ.findIndex(x=>x.key===d+'|'+k);
+  if(i>=0){closeSys('pray-'+pQ[i].key);pQ.splice(i,1);if(i===0){stopAdhan();stopRing()}showPrayerDialog()}
+  toast('تقبّل الله 🤲');renderPrayer();if(cur==='dash')renderNext();
+}
+function testPrayer(){
+  primeAudio();closeM();
+  const p=Object.assign({},PR[2],{at:new Date(),end:new Date(Date.now()+36e5)});
+  promptPrayer(today(),p,'adhan',true);
+}
+function checkPrayers(){
+  if(S.settings.adhan===false)return;
+  const now=new Date(),t0=today();
+  [addDays(t0,-1),t0].forEach(d=>{
+    const L=dayPrayers(d);if(!L)return;
+    L.forEach(p=>{
+      const st=pst(d,p.k);
+      if(now>=p.end){
+        if(st&&(st.s==='called'||st.s==='promised'))pset(d,p.k,Object.assign({},st,{s:'missed'}));
+        const i=pQ.findIndex(x=>x.key===d+'|'+p.k);
+        if(i>=0){closeSys('pray-'+pQ[i].key);pQ.splice(i,1);if(i===0){stopAdhan();stopRing()}showPrayerDialog()}
+        return;
+      }
+      if(now<p.at)return;
+      if(!st){pset(d,p.k,{s:'called',t:Date.now(),f:0});promptPrayer(d,p,(now-p.at)<=10*60000?'adhan':'late')}
+      else if(st.s==='promised'&&!st.f&&Date.now()-st.t>=20*60000){pset(d,p.k,Object.assign({},st,{s:'called',f:1}));promptPrayer(d,p,'follow')}
+      else if(st.s==='called'&&!pQ.length)promptPrayer(d,p,'resume');
+    });
+  });
+}
+function pchip(p,st,now){
+  if(st&&st.s==='prayed')return '<span class="tag ok">صليت ✓</span>';
+  if(st&&st.s==='promised')return '<span class="tag far">وعدت إنك هتصلي</span>';
+  if(st&&st.s==='called')return '<span class="tag far">منتظر ردك</span>';
+  if(st&&st.s==='missed')return '<span class="tag bad">فاتت</span>';
+  if(now>=p.at&&now<p.end)return '<span class="tag">دخل وقتها</span>';
+  return '';
+}
+function renderPrayer(){
+  const t0=today(),L=dayPrayers(t0),now=new Date();
+  $('ploc').textContent='📍 '+coords().n;
+  if(!L){$('pnext').innerHTML='<div class="empty">مكتبة المواقيت (adhan.min.js) ما اتحمّلتش.<br>اتأكد إن الملف مرفوع جنب index.html.</div>';$('plist').innerHTML='';return}
+  const n=upcomingPrayer(),T=ptFor(t0);
+  $('pnext').innerHTML=`<div class="row"><div class="ico">${n.ico}</div><div style="flex:1;min-width:0"><div class="muted">الصلاة الجاية</div><b style="font-size:22px">${n.n}</b><div class="muted">${fmtT(n.at)}</div></div><div class="cd"><b>${ctext(mins(n.at))}</b></div></div>`;
+  const done=L.filter(p=>(pst(t0,p.k)||{}).s==='prayed').length;
+  $('plist').innerHTML=`<div class="row between"><b>صليت ${done} من 5</b><span class="muted">الشروق ${fmtT(T.sunrise)}</span></div><div class="pdots">${L.map(p=>`<i class="${(pst(t0,p.k)||{}).s==='prayed'?'on':''}"></i>`).join('')}</div>`+
+    L.map(p=>{
+      const st=pst(t0,p.k),live=now>=p.at&&now<p.end,can=now>=p.at&&!(st&&st.s==='prayed');
+      return `<div class="task ${live?'now':''}"><div class="ico2">${p.ico}</div><div class="t"><b>${p.n}</b><span class="muted">${fmtT(p.at)}</span>${pchip(p,st,now)}</div><div class="acts">${can?`<button class="pbtn" onclick="markPrayed('${t0}','${p.k}')">صليتها</button>`:''}</div></div>`;
+    }).join('');
+}
+function fillCities(){$('s-city').innerHTML=CITIES.map(c=>`<option value="${c.id}">${c.n}</option>`).join('')+(S.settings.city==='gps'?'<option value="gps">📍 موقعك الحالي</option>':'')}
+function saveCity(){S.settings.city=$('s-city').value;save();ptCache={};render()}
+function saveAdj(){S.settings.adj=Math.max(-30,Math.min(30,parseInt($('s-adj').value)||0));$('s-adj').value=S.settings.adj;save();ptCache={};render()}
+function useGPS(){
+  if(!navigator.geolocation){toast('المتصفح مش بيدعم تحديد الموقع');return}
+  toast('بحدد موقعك…');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    S.settings.city='gps';S.settings.lat=pos.coords.latitude;S.settings.lng=pos.coords.longitude;save();ptCache={};
+    fillCities();$('s-city').value='gps';render();toast('اتحدد موقعك ✅');
+  },()=>toast('معرفتش أحدد موقعك. اختار مدينتك من القايمة'),{timeout:10000,maximumAge:3600000});
 }
 
 /* ---------- إعدادات ---------- */
-function openSettings(){$('s-eve').value=S.settings.eve;$('s-sound').checked=S.settings.sound!==false;$('s-stat').textContent=permText();openM('m-set')}
-function saveSettings(){S.settings.eve=$('s-eve').value||'21:00';S.settings.sound=$('s-sound').checked;save();render()}
+function openSettings(){
+  $('s-eve').value=S.settings.eve;$('s-sound').checked=S.settings.sound!==false;$('s-stat').textContent=permText();
+  $('s-adhan').checked=S.settings.adhan!==false;$('s-oath').checked=S.settings.oath!==false;$('s-adj').value=S.settings.adj||0;
+  fillCities();$('s-city').value=S.settings.city;updateAdhanStat();openM('m-set');
+}
+function saveSettings(){S.settings.eve=$('s-eve').value||'21:00';S.settings.sound=$('s-sound').checked;S.settings.adhan=$('s-adhan').checked;S.settings.oath=$('s-oath').checked;save();render()}
 function resetAll(){if(confirm('تمسح كل البيانات؟')){try{localStorage.removeItem(KEY);localStorage.removeItem(OLD)}catch(e){}load();closeM();render()}}
 function demo(){
   if(S.tasks.length&&!confirm('ده هيضيف بيانات تجريبية جنب بياناتك. كمّل؟'))return;
@@ -453,9 +658,9 @@ function demo(){
 /* ---------- تشغيل ---------- */
 function render(){
   $('hdate').textContent=dlong(today());
-  renderTasks();renderDash();renderBudget();renderEvents();
+  renderTasks();renderDash();renderPrayer();renderBudget();renderEvents();
 }
-ensureDash();ensureBudget();syncFab();render();tick();
+ensureDash();ensureBudget();syncFab();loadAdhan().then(updateAdhanStat);render();tick();
 setInterval(tick,20000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick()});
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(()=>{});
