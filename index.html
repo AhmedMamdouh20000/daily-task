@@ -120,12 +120,22 @@
 <div class="modal" id="m-set" onclick="if(event.target===this)closeM()"><div class="sheet">
   <h2>إعدادات</h2>
   <label>معاد تذكير تسجيل مهام بكرة</label><input id="s-eve" type="time" onchange="saveSettings()">
-  <div class="row" style="margin-top:14px;flex-wrap:wrap"><button class="btn ghost sm" onclick="askPerm()">🔔 فعّل الإشعارات</button><button class="btn ghost sm" onclick="testNotif()">جرّب تنبيه</button></div>
-  <div class="muted" style="margin-top:8px">الإشعارات بتشتغل والصفحة مفتوحة (أو متثبتة كتطبيق). في نسخة Flutter هتشتغل في الخلفية.</div>
+  <div class="row between" style="margin-top:14px"><div><b>صوت المنبّه</b><div class="muted">بيرن لما ييجي ميعاد مهمة</div></div><label class="sw"><input type="checkbox" id="s-sound" onchange="saveSettings()"><i></i></label></div>
+  <div class="row" style="margin-top:14px;flex-wrap:wrap"><button class="btn ghost sm" onclick="askPerm()">🔔 فعّل الإشعارات</button><button class="btn ghost sm" onclick="testNotif()">جرّب المنبّه</button></div>
+  <div class="muted" id="s-stat" style="margin-top:8px"></div>
+  <div class="muted" style="margin-top:6px">المنبّه بيشتغل والصفحة مفتوحة في أي تاب (حتى لو التاب في الخلفية). لو قفلتها أو اللاب نام مش هيرن. في نسخة Flutter هيشتغل في الخلفية.</div>
   <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
   <div class="row" style="flex-wrap:wrap"><button class="btn ghost sm" onclick="demo()">📥 بيانات تجريبية</button><button class="btn ghost sm" style="color:var(--bad)" onclick="resetAll()">🗑 مسح كل حاجة</button></div>
   <button class="btn" style="width:100%;margin-top:16px" onclick="closeM()">تمام</button>
 </div></div>
+<div class="alarm" id="m-alarm" role="alertdialog" aria-live="assertive"><div class="acard">
+  <div class="bell">⏰</div>
+  <h2 id="al-title"></h2><div class="muted" id="al-body"></div><div class="muted" id="al-more" style="margin-top:6px"></div>
+  <div class="abtns">
+    <button class="btn" id="al-done" onclick="alarmDone()">✅ خلصتها</button>
+    <button class="btn ghost" onclick="snooze(5)">😴 فكّرني بعد 5 دقايق</button>
+    <button class="btn ghost" onclick="dismissAlarm()">إغلاق</button>
+  </div></div></div>
 <div id="toasts"></div>
 
 <script src="app.js"></script>

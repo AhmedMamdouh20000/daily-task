@@ -156,3 +156,12 @@ nav button.on span{transform:translateY(-3px) scale(1.18)}
 /* كونفيتي */
 .conf{position:fixed;top:-14px;width:8px;height:13px;border-radius:2px;z-index:60;pointer-events:none;animation:fall 1.7s ease-in forwards}
 @keyframes fall{to{transform:translate(var(--x,0),108vh) rotate(620deg);opacity:.85}}
+
+/* نافذة المنبّه */
+.alarm{position:fixed;inset:0;background:rgba(10,10,30,.62);display:none;align-items:center;justify-content:center;z-index:70;padding:20px;backdrop-filter:blur(4px)}
+.alarm.show{display:flex;animation:fade .2s}
+.acard{background:var(--card);border-radius:24px;padding:24px 20px;width:100%;max-width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);animation:up .35s cubic-bezier(.22,1,.36,1)}
+.acard .bell{font-size:56px;display:inline-block;transform-origin:50% 10%;animation:ringb 1s ease-in-out infinite}
+@keyframes ringb{0%,100%{transform:rotate(0)}15%{transform:rotate(18deg)}30%{transform:rotate(-16deg)}45%{transform:rotate(12deg)}60%{transform:rotate(-8deg)}75%{transform:rotate(0)}}
+.acard h2{font-size:20px;margin:10px 0 4px;overflow-wrap:anywhere}
+.abtns{display:flex;flex-direction:column;gap:8px;margin-top:18px}
