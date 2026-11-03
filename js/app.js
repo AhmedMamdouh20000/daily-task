@@ -24,7 +24,17 @@ wireDialogs();
 /* ---------- الثيم ---------- */
 function applyTheme(t) { document.documentElement.dataset.theme = t; const m = $('meta[name=theme-color]'); if (m) m.content = t === 'dark' ? '#071417' : '#0B7F7A'; }
 applyTheme(document.documentElement.dataset.theme || 'light');
-$('#themeBtn').addEventListener('click', () => { const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; applyTheme(t); store.dev.set({ theme: t }); });
+$('#themeBtn').addEventListener('click', e => {
+  const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', root = document.documentElement;
+  store.dev.set({ theme: t });
+  if (!document.startViewTransition || reducedMotion()) return applyTheme(t);
+  const b = e.currentTarget.getBoundingClientRect(), x = e.clientX || b.x + b.width / 2, y = e.clientY || b.y + b.height / 2;
+  const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+  root.dataset.vt = 'theme';
+  const vt = document.startViewTransition(() => applyTheme(t));
+  vt.ready.then(() => root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] }, { duration: 750, easing: 'cubic-bezier(.45,0,.15,1)', pseudoElement: '::view-transition-new(root)' })).catch(() => {});
+  vt.finished.finally(() => { delete root.dataset.vt; });
+});
 
 /* ---------- التنقل ---------- */
 function ensure(name) { if (!mounted.has(name)) { mounted.add(name); VIEWS[name].mount($('#v-' + name)); } }

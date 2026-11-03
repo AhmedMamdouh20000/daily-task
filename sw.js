@@ -1,5 +1,5 @@
 /* Service Worker: يشغّل التطبيق بدون إنترنت. شبكة أولًا للكود، كاش أولًا للأصول الثقيلة. */
-const V = 'mk-v3.0.0', CORE = `${V}-core`, MEDIA = `${V}-media`;
+const V = 'mk-v3.1.0', CORE = `${V}-core`, MEDIA = `${V}-media`;
 const SHELL = ['./', 'index.html', 'config.js', 'css/app.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png',
   'assets/fonts/readex-arabic.woff2', 'assets/fonts/readex-latin.woff2', 'assets/fonts/ruqaa.woff2', 'js/vendor/adhan.min.js',
   'js/app.js', 'js/core/util.js', 'js/core/store.js', 'js/core/quick.js', 'js/core/report-core.js', 'js/core/sound.js', 'js/core/notify.js', 'js/core/prayer.js', 'js/core/cloud.js', 'js/core/ics.js',

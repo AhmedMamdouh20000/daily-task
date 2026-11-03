@@ -3,7 +3,7 @@ import { $, $$, html, raw, render, today, addDays, rel, dlong, fmtHM, fmtT, dur,
 import * as store from '../core/store.js';
 import * as P from '../core/prayer.js';
 import { parseQuick } from '../core/quick.js';
-import { arcSVG, skyOf } from '../ui/arc.js';
+import { arcSVG, skyOf, sceneSVG } from '../ui/arc.js';
 import { sheet, closeSheet, toast, sw } from '../ui/ui.js';
 import { upcomingEvents } from './events.js';
 
@@ -15,16 +15,16 @@ export function setSel(d) { sel = d; if (root) { renderDates(); renderTasks(); r
 export function mount(el) {
   root = el;
   render(el, html`
-    <div class="hero" id="hero"></div>
+    <div class="cols"><div class="hero" id="hero"></div>
     <div id="banner"></div>
-    <div class="card" id="prog"></div>
-    <div class="dates" id="dates" role="group" aria-label="الأيام"></div>
+    <div class="card" id="prog"></div></div>
+    <div class="cols"><div class="dates" id="dates" role="group" aria-label="الأيام"></div>
     <ul class="tasks" id="tasks"></ul>
     <form class="composer" id="composer" autocomplete="off">
       <input id="q" type="text" enterkeyhint="done" placeholder="اكتب مهمة… مثلاً: اجتماع بكرة 5م" aria-label="مهمة جديدة">
       <div class="hint" id="qhint"></div>
       <div class="row"><button type="button" class="btn sec sm" data-act="detail">تفاصيل</button><span class="grow"></span><button class="btn sm" type="submit">ضيف</button></div>
-    </form>`);
+    </form></div>`);
   el.addEventListener('click', onClick);
   $('#composer', el).addEventListener('submit', onSubmit);
   $('#q', el).addEventListener('input', hint);
@@ -51,7 +51,7 @@ export function renderHero(force) {
   render(el, html`
     <div class="hi">${greet(now.getHours(), s.name)}</div>
     <div class="meta">${dlong(today())} · ${P.cityName(s.city)}</div>
-    ${arcSVG(now, t, st)}
+    ${sceneSVG()}${arcSVG(now, t, st)}
     <div class="next"><b>${cur ? `دلوقتي وقت ${cur.name}` : ''}${cur && next ? ' · ' : ''}${next ? `${next.name} ${fmtT(next.start)}` : ''}</b><span class="num">${next ? `بعد ${dur(left)}` : ''}</span></div>`);
 }
 

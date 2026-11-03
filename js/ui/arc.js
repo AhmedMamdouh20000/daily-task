@@ -35,3 +35,14 @@ export function arcSVG(now, t, st) {
     <g class="body" style="transform:translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px)">${body}</g>
   </svg>`;
 }
+
+/* خلفية الهيرو: أفق مدينة بقباب ومآذن + كثبان (ألوانها من متغيرات السماء) */
+const dome = (x, r, y) => `<path d="M${x - r} ${y}a${r} ${r} 0 0 1 ${2 * r} 0z"/><rect x="${x - r}" y="${y}" width="${2 * r}" height="${200 - y}"/><rect x="${x - 1.5}" y="${y - r - 14}" width="3" height="14"/>`;
+const minaret = (x, h) => `<rect x="${x - 4}" y="${200 - h}" width="8" height="${h}"/><rect x="${x - 7}" y="${200 - h + 24}" width="14" height="4"/><path d="M${x - 4.5} ${200 - h}L${x} ${200 - h - 24}L${x + 4.5} ${200 - h}z"/>`;
+const blk = (x, w, h) => `<rect x="${x}" y="${200 - h}" width="${w}" height="${h}"/>`;
+const SCENE = `<svg class="scene" viewBox="0 0 800 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+<g class="s1">${blk(0, 70, 40)}${blk(60, 50, 62)}${dome(215, 30, 138)}${minaret(268, 96)}${blk(285, 60, 52)}${blk(350, 40, 34)}${minaret(440, 112)}${dome(520, 46, 134)}${dome(466, 20, 160)}${dome(574, 20, 160)}${minaret(612, 112)}${blk(640, 50, 50)}${blk(695, 40, 70)}${blk(740, 60, 44)}</g>
+<path class="s2" d="M0 200V158C110 132 230 150 340 160S560 150 680 138 780 142 800 146V200z"/>
+<path class="s3" d="M0 200V178C130 160 260 184 400 176S650 160 800 176V200z"/>
+</svg>`;
+export const sceneSVG = () => raw(SCENE);
